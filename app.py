@@ -15,7 +15,12 @@ from src.completeness import (
     load_storybook_overrides,
 )
 from src.joining import join_sources
-from src.qualtrics import DEFAULT_CUTOFF, clean_qualtrics_csv
+from src.qualtrics import (
+    DEFAULT_CUTOFF,
+    DEFAULT_TIMEZONE,
+    clean_qualtrics_csv,
+    filter_cleaning_result_by_date_range,
+)
 from src.reporting import completed_participant_details, summary_metrics
 from src.supabase_client import create_supabase_client, fetch_participants
 
@@ -31,14 +36,15 @@ def _secret(name: str) -> str | None:
     except StreamlitSecretNotFoundError:
         return None
 
-st.set_page_config(page_title="AFD Story Data Analysis", layout="wide")
+st.set_page_config(page_title="AFD Storybook Study Data Analysis", layout="wide")
 st.title("AFD Story Data Analysis")
-st.caption("Cleans and filters qualtrics survey data and storybook metrics and joins by participant ID. Completion is defined by valid responses to key survey questions (demographics, scales) and book and game completion")
+st.caption("Cleans and filters qualtrics survey data and storybook metrics and joins by participant ID. Completion is defined by valid responses to key survey questions (essential demographics, completion of scales) and book and game completion")
 
 with st.sidebar:
     st.header("Data sources")
     pretest_upload = st.file_uploader("Pre-test Qualtrics CSV", type="csv")
     posttest_upload = st.file_uploader("Post-test Qualtrics CSV", type="csv")
+    use_date_slice = st.checkbox("Filter by date range", value=False)
     st.caption(f"Responses before the start of data collection on {DEFAULT_CUTOFF} are excluded.")
 
 if not pretest_upload or not posttest_upload:
@@ -51,6 +57,45 @@ try:
 except (ValueError, TypeError) as error:
     st.error(f"Could not process the Qualtrics files: {error}")
     st.stop()
+
+if use_date_slice:
+    available_dates = pd.concat(
+        [
+            pretest_result.data["_parsed_start_date"],
+            posttest_result.data["_parsed_start_date"],
+        ]
+    ).dropna()
+    min_available_date = available_dates.min().date()
+    max_available_date = available_dates.max().date()
+    with st.sidebar:
+        selected_start_date = st.date_input(
+            "Start date",
+            value=min_available_date,
+            min_value=min_available_date,
+            max_value=max_available_date,
+        )
+        selected_end_date = st.date_input(
+            "End date",
+            value=max_available_date,
+            min_value=min_available_date,
+            max_value=max_available_date,
+        )
+    try:
+        pretest_result = filter_cleaning_result_by_date_range(
+            pretest_result,
+            selected_start_date,
+            selected_end_date,
+            DEFAULT_TIMEZONE,
+        )
+        posttest_result = filter_cleaning_result_by_date_range(
+            posttest_result,
+            selected_start_date,
+            selected_end_date,
+            DEFAULT_TIMEZONE,
+        )
+    except ValueError as error:
+        st.error(str(error))
+        st.stop()
 
 supabase_url = os.getenv("SUPABASE_URL") or _secret("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY") or _secret("SUPABASE_KEY")

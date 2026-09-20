@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.qualtrics import DEFAULT_CUTOFF, clean_qualtrics_csv, load_qualtrics_csv
+from src.qualtrics import (
+    DEFAULT_CUTOFF,
+    clean_qualtrics_csv,
+    filter_by_date_range,
+    load_qualtrics_csv,
+)
 
 INPUT_DATA = Path(__file__).parents[1] / "input-data"
 PRETEST = next(INPUT_DATA.glob("*Pre-Test*.csv"))
@@ -37,3 +42,16 @@ def test_cleaning_retains_posttest_duplicate_rows_and_flags_ids():
 
 def test_cutoff_is_timezone_aware():
     assert DEFAULT_CUTOFF == pd.Timestamp("2026-03-29 19:45:41", tz="America/Los_Angeles")
+
+
+def test_date_range_filter_is_inclusive_for_calendar_days():
+    result = clean_qualtrics_csv(PRETEST, "pretest")
+
+    filtered = filter_by_date_range(
+        result.data,
+        start_date=pd.Timestamp("2026-09-19").date(),
+        end_date=pd.Timestamp("2026-09-19").date(),
+    )
+
+    assert len(filtered) == 2
+    assert filtered["_parsed_start_date"].dt.date.eq(pd.Timestamp("2026-09-19").date()).all()

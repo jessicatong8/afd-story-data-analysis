@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from dataclasses import replace
+from datetime import date, datetime, timedelta
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import BinaryIO, TextIO
@@ -101,3 +102,45 @@ def clean_qualtrics_csv(
         source=source_name,
         duplicate_ids=duplicate_ids,
     )
+
+
+def filter_by_date_range(
+    frame: pd.DataFrame,
+    start_date: date,
+    end_date: date,
+    timezone: str = DEFAULT_TIMEZONE,
+) -> pd.DataFrame:
+    """Filter cleaned Qualtrics rows inclusively by local calendar date."""
+    if start_date > end_date:
+        raise ValueError("Start date must be on or before end date")
+    if "_parsed_start_date" not in frame.columns:
+        raise ValueError("Cleaned Qualtrics data is missing parsed StartDate values")
+
+    start = pd.Timestamp(start_date).tz_localize(timezone)
+    end_exclusive = (
+        pd.Timestamp(end_date + timedelta(days=1)).tz_localize(timezone)
+    )
+    mask = frame["_parsed_start_date"].ge(start) & frame["_parsed_start_date"].lt(
+        end_exclusive
+    )
+    return frame.loc[mask].reset_index(drop=True)
+
+
+def filter_cleaning_result_by_date_range(
+    result: CleaningResult,
+    start_date: date,
+    end_date: date,
+    timezone: str = DEFAULT_TIMEZONE,
+) -> CleaningResult:
+    """Apply a date slice and recompute duplicate checks for that slice."""
+    data = filter_by_date_range(result.data, start_date, end_date, timezone)
+    duplicate_mask = data["participant_id"].ne("") & data["participant_id"].notna()
+    duplicate_mask &= data["participant_id"].duplicated(keep=False)
+    data["_is_duplicate_participant_id"] = duplicate_mask
+    duplicate_ids = (
+        data.loc[duplicate_mask, ["participant_id"]]
+        .drop_duplicates()
+        .sort_values("participant_id")
+        .reset_index(drop=True)
+    )
+    return replace(result, data=data, duplicate_ids=duplicate_ids)
