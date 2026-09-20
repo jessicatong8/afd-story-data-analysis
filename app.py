@@ -16,7 +16,7 @@ from src.completeness import (
 )
 from src.joining import join_sources
 from src.qualtrics import DEFAULT_CUTOFF, clean_qualtrics_csv
-from src.reporting import referral_sources_for_completed, summary_metrics
+from src.reporting import completed_participant_details, summary_metrics
 from src.supabase_client import create_supabase_client, fetch_participants
 
 load_dotenv()
@@ -33,13 +33,13 @@ def _secret(name: str) -> str | None:
 
 st.set_page_config(page_title="AFD Story Data Analysis", layout="wide")
 st.title("AFD Story Data Analysis")
-st.caption("Process Qualtrics surveys and participant storybook metrics in memory.")
+st.caption("Cleans and filters qualtrics survey data and storybook metrics and joins by participant ID. Completion is defined by valid responses to key survey questions (demographics, scales) and book and game completion")
 
 with st.sidebar:
     st.header("Data sources")
     pretest_upload = st.file_uploader("Pre-test Qualtrics CSV", type="csv")
     posttest_upload = st.file_uploader("Post-test Qualtrics CSV", type="csv")
-    st.caption(f"Responses before {DEFAULT_CUTOFF} are excluded.")
+    st.caption(f"Responses before the start of data collection on {DEFAULT_CUTOFF} are excluded.")
 
 if not pretest_upload or not posttest_upload:
     st.info("Upload both Qualtrics CSV files to begin.")
@@ -83,12 +83,12 @@ metric_columns = st.columns(8)
 for column, (label, value) in zip(
     metric_columns,
     [
-        ("Unique participants", metrics["unique_participants"]),
+        # ("Unique participants", metrics["unique_participants"]),
         ("Pre-test participants", metrics["pretest_participants"]),
         ("Completed pre-test", metrics["completed_pretest_participants"]),
-        ("Post-test participants", metrics["posttest_participants"]),
+        # ("Post-test participants", metrics["posttest_participants"]),
         ("Completed post-test", metrics["completed_posttest_participants"]),
-        ("Storybook participants", metrics["storybook_participants"]),
+        # ("Storybook participants", metrics["storybook_participants"]),
         ("Completed storybook", metrics["completed_storybook_participants"]),
         ("Fully completed", metrics["fully_completed_participants"]),
     ],
@@ -106,13 +106,13 @@ quality_columns[3].metric(
     "Inferred storybook", metrics["inferred_storybook_participants"]
 )
 
-st.subheader("Referral sources for fully completed participants")
-referral_table = referral_sources_for_completed(joined)
-if referral_table.empty:
+st.subheader("Completed participant details")
+participant_details = completed_participant_details(joined)
+if participant_details.empty:
     st.info("No fully completed participants match the current completion rules.")
 else:
     st.dataframe(
-        referral_table.style.format({"percentage": "{:.1f}%"}),
+        participant_details,
         width="stretch",
         hide_index=True,
     )
@@ -134,5 +134,17 @@ st.download_button(
     "Download joined dataset",
     data=joined.to_csv(index=False).encode("utf-8"),
     file_name="afd_story_joined_dataset.csv",
+    mime="text/csv",
+)
+
+fully_completed = joined.loc[joined["fully_completed"]].copy()
+
+with st.expander("Fully completed dataset preview"):
+    st.dataframe(fully_completed, width="stretch", hide_index=True)
+
+st.download_button(
+    "Download fully completed dataset",
+    data=fully_completed.to_csv(index=False).encode("utf-8"),
+    file_name="afd_story_fully_completed_dataset.csv",
     mime="text/csv",
 )

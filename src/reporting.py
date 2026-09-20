@@ -54,29 +54,80 @@ def _unique_source_participants(frame: pd.DataFrame, source: str) -> int:
     )
 
 
-def referral_sources_for_completed(joined: pd.DataFrame) -> pd.DataFrame:
-    """Count one referral source per fully completed participant."""
-    if REFERRAL_COLUMN not in joined.columns:
-        return pd.DataFrame(columns=["referral_source", "participants", "percentage"])
+def completed_participant_details(joined: pd.DataFrame) -> pd.DataFrame:
+    """Return one demographic detail row per fully completed participant."""
+    source_columns = {
+        "start_date": "pretest__StartDate",
+        "city": "pretest__City",
+        "state": "pretest__State",
+        "country": "pretest__Country",
+        "child_age": "pretest__CAge",
+        "parent_ethnicity": "pretest__PEthnicity",
+        "child_ethnicity": "pretest__CEthnicity",
+        "referral_source": REFERRAL_COLUMN,
+    }
+    output_columns = [
+        "participant_id",
+        "start_date",
+        "location",
+        "referral_source",
+        "child_age",
+        "parent_ethnicity",
+        "child_ethnicity",
+    ]
+    required_columns = ["fully_completed", "participant_id", *source_columns.values()]
+    if not all(column in joined.columns for column in required_columns):
+        return pd.DataFrame(columns=output_columns)
 
     completed = joined.loc[
         joined["fully_completed"]
         & joined["participant_id"].notna()
         & joined["participant_id"].ne(""),
-        ["participant_id", REFERRAL_COLUMN],
+        required_columns,
     ].copy()
     if completed.empty:
-        return pd.DataFrame(columns=["referral_source", "participants", "percentage"])
+        return pd.DataFrame(columns=output_columns)
 
-    completed["referral_source"] = (
-        completed[REFERRAL_COLUMN].astype("string").str.strip().replace("", pd.NA).fillna("Missing/Unknown")
+    completed = completed.rename(
+        columns={value: key for key, value in source_columns.items()}
     )
-    per_participant = completed.groupby("participant_id", as_index=False).agg(
-        referral_source=("referral_source", _resolve_referral_source)
+    completed["start_date"] = pd.to_datetime(
+        completed["start_date"], errors="coerce", format="mixed"
     )
-    counts = per_participant["referral_source"].value_counts().rename_axis("referral_source").reset_index(name="participants")
-    counts["percentage"] = counts["participants"] / len(per_participant) * 100
-    return counts
+    completed = completed.sort_values(
+        "start_date", ascending=True, na_position="first"
+    )
+    completed = completed.drop_duplicates("participant_id", keep="last")
+
+    def clean_value(value: object, fallback: str = "Missing/Unknown") -> str:
+        if pd.isna(value) or str(value).strip() == "":
+            return fallback
+        return str(value).strip()
+
+    completed["location"] = completed.apply(
+        lambda row: ", ".join(
+            value
+            for value in [
+                clean_value(row["city"], ""),
+                clean_value(row["state"], ""),
+                clean_value(row["country"], ""),
+            ]
+            if value
+        )
+        or "Missing/Unknown",
+        axis=1,
+    )
+    for column in [
+        "referral_source",
+        "child_age",
+        "parent_ethnicity",
+        "child_ethnicity",
+    ]:
+        completed[column] = completed[column].map(clean_value)
+
+    return completed.sort_values(
+        "start_date", ascending=False, na_position="last"
+    )[output_columns].reset_index(drop=True)
 
 
 def _resolve_referral_source(values: pd.Series) -> str:
