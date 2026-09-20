@@ -16,6 +16,9 @@ def summary_metrics(joined: pd.DataFrame) -> dict[str, int]:
         if "pretest_complete" in participant_rows
         else 0,
         "posttest_participants": int(_unique_present(joined, "posttest_present")),
+        "completed_posttest_participants": int(participant_rows["posttest_complete"].sum())
+        if "posttest_complete" in participant_rows
+        else 0,
         "storybook_participants": int(_unique_present(joined, "storybook_present")),
         "fully_completed_participants": int(participant_rows["fully_completed"].sum())
         if "fully_completed" in participant_rows

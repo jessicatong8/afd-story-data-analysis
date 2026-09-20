@@ -114,8 +114,42 @@ pretest:
   completion_mode: all_non_empty
 
 posttest:
-  required_columns:
-    - participant_id
+  sections:
+    child_program_eval:
+      - CEnjoyment
+      - CUnderstanding
+      - CInteraction
+      - CGame
+      - CLearning
+      - CEmpathy
+      - CReread
+    child_learning:
+      - CLearning-LL
+      - CLearning-CultDiff
+      - CLL-Loved
+      - CLL-Understanding
+      - CLL-Closeness
+    child_love_language_change:
+      - CLL-WordsChange
+      - CLL-TouchChange
+      - CLL-GiftsChange
+      - CLL-ServiceChange
+      - CLL-TimeChange
+      - CLL-FoodChange
+    parent_program_eval:
+      - PEnjoyment
+      - PUnderstanding
+      - PInteraction
+      - PGame
+      - PEmpathy
+      - PReread
+      - PRecommend
+    parent_learning:
+      - PLearning-LL
+      - PLearning-CultDiff
+      - PLL-ChildLoved
+      - PLL-ShowLove
+      - PLL-Closness
   completion_mode: all_non_empty
 
 storybook:

@@ -106,6 +106,42 @@ def test_pretest_completion_reports_missing_sections():
     assert result.loc[1, "pretest_missing_sections"] == "Demographics, SDQ Scale"
 
 
+def test_posttest_completion_requires_all_sections_and_reports_missing_sections():
+    frame = pd.DataFrame(
+        {
+            "participant_id": ["complete", "missing"],
+            "posttest__CEnjoyment": ["1", "1"],
+            "posttest__CUnderstanding": ["1", ""],
+            "posttest__CLearning-LL": ["1", "1"],
+            "posttest__C L L-WordsChange": ["1", "1"],
+            "posttest__PEnjoyment": ["1", "1"],
+            "posttest__PUnderstanding": ["1", "1"],
+            "posttest__PLearning-LL": ["1", "1"],
+        }
+    )
+    frame = frame.rename(columns={"posttest__C L L-WordsChange": "posttest__CLL-WordsChange"})
+    rules = {
+        "pretest": {"required_columns": ["participant_id"]},
+        "posttest": {
+            "sections": {
+                "child_program_eval": ["CEnjoyment", "CUnderstanding"],
+                "child_learning": ["CLearning-LL"],
+                "child_love_language_change": ["CLL-WordsChange"],
+                "parent_program_eval": ["PEnjoyment", "PUnderstanding"],
+                "parent_learning": ["PLearning-LL"],
+            }
+        },
+        "storybook": {"required_columns": ["participant_id"]},
+    }
+
+    result = apply_completion_rules(frame, rules)
+
+    assert result.loc[0, "posttest_complete"]
+    assert pd.isna(result.loc[0, "posttest_missing_sections"])
+    assert not result.loc[1, "posttest_complete"]
+    assert result.loc[1, "posttest_missing_sections"] == "Child Program Eval"
+
+
 def test_summary_metrics_counts_completed_pretest_participants():
     joined = pd.DataFrame(
         {
@@ -114,7 +150,7 @@ def test_summary_metrics_counts_completed_pretest_participants():
             "posttest_present": [False, False, False],
             "storybook_present": [False, False, False],
             "pretest_complete": [True, True, False],
-            "posttest_complete": [False, False, False],
+            "posttest_complete": [True, True, False],
             "storybook_complete": [False, False, False],
             "fully_completed": [False, False, False],
         }
@@ -123,3 +159,4 @@ def test_summary_metrics_counts_completed_pretest_participants():
     metrics = summary_metrics(joined)
 
     assert metrics["completed_pretest_participants"] == 1
+    assert metrics["completed_posttest_participants"] == 1

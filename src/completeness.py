@@ -18,6 +18,14 @@ PRETEST_SECTION_LABELS = {
     "child_love_language_scale": "Child Love Language Scale",
 }
 
+POSTTEST_SECTION_LABELS = {
+    "child_program_eval": "Child Program Eval",
+    "child_learning": "Child Learning",
+    "child_love_language_change": "Child Love Language Change",
+    "parent_program_eval": "Parent Program Eval",
+    "parent_learning": "Parent Learning",
+}
+
 
 def load_completion_rules(path: str | Path) -> dict[str, Any]:
     with Path(path).open(encoding="utf-8") as file:
@@ -73,11 +81,16 @@ def apply_completion_rules(frame: pd.DataFrame, rules: dict[str, Any]) -> pd.Dat
         result[flag_name] = result[section_flags].all(axis=1)
         source_flags.append(flag_name)
 
-        if source == "pretest":
+        if source in {"pretest", "posttest"}:
             section_names = list(sections)
-            result["pretest_missing_sections"] = result.apply(
+            labels = (
+                PRETEST_SECTION_LABELS
+                if source == "pretest"
+                else POSTTEST_SECTION_LABELS
+            )
+            result[f"{source}_missing_sections"] = result.apply(
                 lambda row: ", ".join(
-                    PRETEST_SECTION_LABELS.get(
+                    labels.get(
                         section, section.replace("_", " ").title()
                     )
                     for section, section_flag in zip(section_names, section_flags)
