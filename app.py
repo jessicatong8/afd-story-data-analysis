@@ -80,11 +80,9 @@ for column, (label, value) in zip(
     column.metric(label, value)
 
 st.subheader("Data quality")
-quality_columns = st.columns(4)
-quality_columns[0].metric("Pre-test excluded", len(pretest_result.excluded))
-quality_columns[1].metric("Post-test excluded", len(posttest_result.excluded))
-quality_columns[2].metric("Pre-test duplicate IDs", len(pretest_result.duplicate_ids))
-quality_columns[3].metric("Post-test duplicate IDs", len(posttest_result.duplicate_ids))
+quality_columns = st.columns(2)
+quality_columns[0].metric("Pre-test duplicate IDs", len(pretest_result.duplicate_ids))
+quality_columns[1].metric("Post-test duplicate IDs", len(posttest_result.duplicate_ids))
 
 st.subheader("Referral sources for fully completed participants")
 referral_table = referral_sources_for_completed(joined)
@@ -114,16 +112,5 @@ st.download_button(
     "Download joined dataset",
     data=joined.to_csv(index=False).encode("utf-8"),
     file_name="afd_story_joined_dataset.csv",
-    mime="text/csv",
-)
-
-excluded = pd.concat(
-    [pretest_result.excluded.assign(source="pretest"), posttest_result.excluded.assign(source="posttest")],
-    ignore_index=True,
-)
-st.download_button(
-    "Download filtering audit",
-    data=excluded.to_csv(index=False).encode("utf-8"),
-    file_name="afd_story_filtering_audit.csv",
     mime="text/csv",
 )

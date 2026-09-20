@@ -76,27 +76,18 @@ def clean_qualtrics_csv(
     frame["participant_id"] = frame[participant_column]
     frame["_source"] = source_name
     frame["_parsed_start_date"] = _parse_start_dates(frame[start_column], timezone)
-    frame["_is_preview"] = (
+    is_preview = (
         frame[status_column].astype("string").str.strip().str.casefold()
         == "survey preview"
     )
-    frame["_before_collection_cutoff"] = frame["_parsed_start_date"] < _as_cutoff(
+    before_collection_cutoff = frame["_parsed_start_date"] < _as_cutoff(
         cutoff, timezone
     )
-    frame["_has_participant_id"] = frame["participant_id"].fillna("").str.len() > 0
-
     duplicate_mask = frame["participant_id"].ne("") & frame["participant_id"].notna()
     duplicate_mask &= frame["participant_id"].duplicated(keep=False)
     frame["_is_duplicate_participant_id"] = duplicate_mask
-    frame["_exclusion_reason"] = ""
-    frame.loc[frame["_is_preview"], "_exclusion_reason"] = "survey_preview"
-    frame.loc[
-        ~frame["_is_preview"] & frame["_before_collection_cutoff"],
-        "_exclusion_reason",
-    ] = "before_collection_cutoff"
 
-    eligible_mask = ~frame["_is_preview"] & ~frame["_before_collection_cutoff"]
-    excluded = frame.loc[~eligible_mask].copy()
+    eligible_mask = ~is_preview & ~before_collection_cutoff
     data = frame.loc[eligible_mask].copy()
     duplicate_ids = (
         data.loc[data["_is_duplicate_participant_id"], ["participant_id"]]
@@ -107,7 +98,6 @@ def clean_qualtrics_csv(
 
     return CleaningResult(
         data=data.reset_index(drop=True),
-        excluded=excluded.reset_index(drop=True),
         source=source_name,
         duplicate_ids=duplicate_ids,
     )

@@ -21,9 +21,7 @@ def test_cleaning_filters_previews_and_before_cutoff_rows():
     result = clean_qualtrics_csv(PRETEST, "pretest")
 
     assert len(result.data) == 73
-    assert len(result.excluded) == 10
-    assert not result.data["_is_preview"].any()
-    assert not result.data["_before_collection_cutoff"].any()
+    assert not {"_has_participant_id", "_is_preview", "_before_collection_cutoff", "_exclusion_reason"}.intersection(result.data.columns)
     assert result.data["participant_id"].dtype == "string"
     assert result.data["_parsed_start_date"].dt.tz is not None
     assert str(result.data["_parsed_start_date"].dt.tz) == "America/Los_Angeles"

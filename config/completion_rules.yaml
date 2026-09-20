@@ -1,6 +1,116 @@
 pretest:
-  required_columns:
-    - participant_id
+  sections:
+    demographics:
+      - Country
+      - CGender
+      - CAge
+      - PHispanic
+      - CHispanic
+      - PRace
+      - CRace
+      - PEthnicity
+      - CEthnicity
+      - PGeneration
+      - CGeneration
+      - PCountryYears
+      - CCountryYears
+      - CEnglish_1
+      - CEnglish_2
+      - CLanguages
+      - CLanguageAbilities
+    cprs_scale:
+      - PCPRS-Conflict_1
+      - PCPRS-Conflict_2
+      - PCPRS-Conflict_3
+      - PCPRS-Conflict_4
+      - PCPRS-Conflict_5
+      - PCPRS-Conflict_6
+      - PCPRS-Conflict_7
+      - PCPRS-Conflict_8
+    sdq_scale:
+      - PSDQ_1
+      - PSDQ_2
+      - PSDQ_3
+    parent_afd_scale:
+      - PAFD_1
+      - PAFD_2
+      - PAFD_3
+      - PAFD_4
+      - PAFD_5
+      - PAFD_6
+      - PAFD_7
+      - PAFD_8
+      - PAFD_9
+      - PAFD_10
+    parent_love_general:
+      - PLL-General_1
+      - PLL-General_2
+      - PLL-General_3
+    parent_love_language_scale:
+      - PLL-WordsFreq_1
+      - PLL-WordsFreq_2
+      - PLL-WordsFreq_3
+      - PLL-WordsFreq_4
+      - PLL-TouchFreq_1
+      - PLL-TouchFreq_2
+      - PLL-TouchFreq_3
+      - PLL-TouchFreq_4
+      - PLL-GiftsFreq_1
+      - PLL-GiftsFreq_2
+      - PLL-GiftsFreq_3
+      - PLL-GiftsFreq_4
+      - PLL-Service Freq_1
+      - PLL-Service Freq_2
+      - PLL-Service Freq_3
+      - PLL-Service Freq_4
+      - PLL-TimeFreq_1
+      - PLL-TimeFreq_2
+      - PLL-TimeFreq_3
+      - PLL-TimeFreq_4
+      - PLL-FoodFreq_1
+      - PLL-FoodFreq_2
+      - PLL-FoodFreq_3
+      - PLL-FoodFreq_4
+    child_afd_scale:
+      - CAFD_1
+      - CAFD_2
+      - CAFD_3
+      - CAFD_4
+      - CAFD_5
+      - CAFD_6
+      - CAFD_7
+      - CAFD_8
+      - CAFD_9
+      - CAFD_10
+    child_love_general:
+      - CLL-General_1
+      - CLL-General_2
+      - CLL-General_3
+    child_love_language_scale:
+      - CLL-WordsFreq_1
+      - CLL-WordsFreq_2
+      - CLL-WordsFreq_3
+      - CLL-WordsFreq_4
+      - CLL-TouchFreq_1
+      - CLL-TouchFreq_2
+      - CLL-TouchFreq_3
+      - CLL-TouchFreq_4
+      - CLL-GiftsFreq_1
+      - CLL-GiftsFreq_2
+      - CLL-GiftsFreq_3
+      - CLL-GiftsFreq_4
+      - CLL-ServiceFreq_1
+      - CLL-ServiceFreq_2
+      - CLL-ServiceFreq_3
+      - CLL-ServiceFreq_4
+      - CLL-TimeFreq_1
+      - CLL-TimeFreq_2
+      - CLL-TimeFreq_3
+      - CLL-TimeFreq_4
+      - CLL-FoodFreq_1
+      - CLL-FoodFreq_2
+      - CLL-FoodFreq_3
+      - CLL-FoodFreq_4
   completion_mode: all_non_empty
 
 posttest:

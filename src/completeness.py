@@ -6,6 +6,18 @@ from typing import Any
 import pandas as pd
 import yaml
 
+PRETEST_SECTION_LABELS = {
+    "demographics": "Demographics",
+    "cprs_scale": "CPRS Scale",
+    "sdq_scale": "SDQ Scale",
+    "parent_afd_scale": "Parent AFD Scale",
+    "parent_love_general": "Parent Love General",
+    "parent_love_language_scale": "Parent Love Language Scale",
+    "child_afd_scale": "Child AFD Scale",
+    "child_love_general": "Child Love General",
+    "child_love_language_scale": "Child Love Language Scale",
+}
+
 
 def load_completion_rules(path: str | Path) -> dict[str, Any]:
     with Path(path).open(encoding="utf-8") as file:
@@ -31,26 +43,49 @@ def _column_for_source(frame: pd.DataFrame, source: str, column: str) -> str:
 
 
 def apply_completion_rules(frame: pd.DataFrame, rules: dict[str, Any]) -> pd.DataFrame:
-    """Add row-level completion flags from configurable required columns."""
+    """Add row-level completion flags and missing-section details."""
     result = frame.copy()
     source_flags: list[str] = []
     for source in ("pretest", "posttest", "storybook"):
         source_rule = rules.get(source, {})
-        required_columns = source_rule.get("required_columns", [])
         if source_rule.get("completion_mode", "all_non_empty") != "all_non_empty":
             raise ValueError(f"Unsupported completion mode for {source}")
 
-        checks = []
-        for column in required_columns:
-            resolved_column = _column_for_source(result, source, column)
-            checks.append(_is_non_empty(result[resolved_column]))
+        sections = source_rule.get("sections")
+        if sections is None:
+            sections = {"overall": source_rule.get("required_columns", [])}
+
+        section_flags: list[str] = []
+        for section, required_columns in sections.items():
+            checks = []
+            for column in required_columns:
+                resolved_column = _column_for_source(result, source, column)
+                checks.append(_is_non_empty(result[resolved_column]))
+            flag_name = f"{source}_{section}_complete"
+            result[flag_name] = (
+                pd.concat(checks, axis=1).all(axis=1)
+                if checks
+                else pd.Series(False, index=result.index)
+            )
+            section_flags.append(flag_name)
+
         flag_name = f"{source}_complete"
-        result[flag_name] = (
-            pd.concat(checks, axis=1).all(axis=1)
-            if checks
-            else pd.Series(False, index=result.index)
-        )
+        result[flag_name] = result[section_flags].all(axis=1)
         source_flags.append(flag_name)
+
+        if source == "pretest":
+            section_names = list(sections)
+            result["pretest_missing_sections"] = result.apply(
+                lambda row: ", ".join(
+                    PRETEST_SECTION_LABELS.get(
+                        section, section.replace("_", " ").title()
+                    )
+                    for section, section_flag in zip(section_names, section_flags)
+                    if not row[section_flag]
+                )
+                or pd.NA,
+                axis=1,
+            )
 
     result["fully_completed"] = result[source_flags].all(axis=1)
     return result

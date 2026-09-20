@@ -60,8 +60,8 @@ def join_sources(
 
     sources = {
         "pretest": _prepare_source(pretest, "pretest"),
-        "posttest": _prepare_source(posttest, "posttest"),
         "storybook": _prepare_source(storybook, "storybook"),
+        "posttest": _prepare_source(posttest, "posttest"),
     }
     joined = reduce(
         lambda left, right: left.merge(right, on="__join_key", how="outer"),

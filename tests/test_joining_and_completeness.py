@@ -35,6 +35,16 @@ def test_full_outer_join_retains_duplicate_posttest_rows():
     assert joined["storybook_present"].sum() == 1
     assert "storybook-only" not in set(joined["participant_id"].dropna())
     assert "missing_multiple_sources" in set(joined["join_status"])
+    source_columns = [
+        column
+        for column in joined.columns
+        if column.startswith(("pretest__", "storybook__", "posttest__"))
+    ]
+    assert source_columns[0].startswith("pretest__")
+    assert next(index for index, column in enumerate(source_columns) if column.startswith("storybook__")) > 0
+    assert next(index for index, column in enumerate(source_columns) if column.startswith("posttest__")) > next(
+        index for index, column in enumerate(source_columns) if column.startswith("storybook__")
+    )
 
 
 def test_join_excludes_blank_storybook_ids():
@@ -65,3 +75,31 @@ def test_completion_rules_and_participant_summary():
     assert "fully_completed" in completed.columns
     assert summary["participant_id"].is_unique
     assert summary["fully_completed"].dtype == bool
+
+
+def test_pretest_completion_reports_missing_sections():
+    frame = pd.DataFrame(
+        {
+            "participant_id": ["complete", "missing"],
+            "pretest__Country": ["US", "US"],
+            "pretest__CAge": ["8", ""],
+            "pretest__PSDQ_1": ["1", ""],
+        }
+    )
+    rules = {
+        "pretest": {
+            "sections": {
+                "demographics": ["Country", "CAge"],
+                "sdq_scale": ["PSDQ_1"],
+            },
+            "completion_mode": "all_non_empty",
+        },
+        "posttest": {"required_columns": ["participant_id"]},
+        "storybook": {"required_columns": ["participant_id"]},
+    }
+
+    result = apply_completion_rules(frame, rules)
+
+    assert result.loc[0, "pretest_complete"]
+    assert pd.isna(result.loc[0, "pretest_missing_sections"])
+    assert result.loc[1, "pretest_missing_sections"] == "Demographics, SDQ Scale"
