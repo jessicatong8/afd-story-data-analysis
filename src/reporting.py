@@ -20,6 +20,15 @@ def summary_metrics(joined: pd.DataFrame) -> dict[str, int]:
         if "posttest_complete" in participant_rows
         else 0,
         "storybook_participants": int(_unique_present(joined, "storybook_present")),
+        "confirmed_storybook_participants": int(
+            _unique_source_participants(joined, "supabase_confirmed")
+        ),
+        "inferred_storybook_participants": int(
+            _unique_source_participants(joined, "inferred_from_posttest")
+        ),
+        "completed_storybook_participants": int(participant_rows["storybook_complete"].sum())
+        if "storybook_complete" in participant_rows
+        else 0,
         "fully_completed_participants": int(participant_rows["fully_completed"].sum())
         if "fully_completed" in participant_rows
         else 0,
@@ -30,6 +39,19 @@ def summary_metrics(joined: pd.DataFrame) -> dict[str, int]:
 
 def _unique_present(frame: pd.DataFrame, presence_column: str) -> int:
     return int(frame.loc[frame[presence_column], "participant_id"].dropna().replace("", pd.NA).nunique())
+
+
+def _unique_source_participants(frame: pd.DataFrame, source: str) -> int:
+    if "storybook_completion_source" not in frame.columns:
+        return 0
+    return int(
+        frame.loc[
+            frame["storybook_completion_source"].eq(source), "participant_id"
+        ]
+        .dropna()
+        .replace("", pd.NA)
+        .nunique()
+    )
 
 
 def referral_sources_for_completed(joined: pd.DataFrame) -> pd.DataFrame:

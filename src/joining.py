@@ -75,9 +75,14 @@ def join_sources(
         joined[f"{source}_present"] = joined.get(presence_column, False).fillna(False).astype(bool)
         joined = joined.drop(columns=[presence_column], errors="ignore")
 
-    presence = joined[[f"{source}_present" for source in SOURCE_NAMES]]
-    joined["join_status"] = presence.apply(_join_status, axis=1)
-    return joined
+    return refresh_join_status(joined)
+
+
+def refresh_join_status(frame: pd.DataFrame) -> pd.DataFrame:
+    result = frame.copy()
+    presence = result[[f"{source}_present" for source in SOURCE_NAMES]]
+    result["join_status"] = presence.apply(_join_status, axis=1)
+    return result
 
 
 def _join_status(row: pd.Series) -> str:

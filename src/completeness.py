@@ -6,6 +6,8 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from .joining import refresh_join_status
+
 PRETEST_SECTION_LABELS = {
     "demographics": "Demographics",
     "cprs_scale": "CPRS Scale",
@@ -33,10 +35,20 @@ def load_completion_rules(path: str | Path) -> dict[str, Any]:
     return rules
 
 
+def load_storybook_overrides(path: str | Path) -> list[dict[str, str]]:
+    with Path(path).open(encoding="utf-8") as file:
+        config = yaml.safe_load(file) or {}
+    return config.get("overrides", [])
+
+
 def _is_non_empty(values: pd.Series) -> pd.Series:
     if pd.api.types.is_bool_dtype(values):
         return values.notna()
     return values.notna() & values.astype("string").str.strip().ne("")
+
+
+def _is_true(values: pd.Series) -> pd.Series:
+    return values.astype("boolean").fillna(False).eq(True)
 
 
 def _column_for_source(frame: pd.DataFrame, source: str, column: str) -> str:
@@ -69,6 +81,10 @@ def apply_completion_rules(frame: pd.DataFrame, rules: dict[str, Any]) -> pd.Dat
             for column in required_columns:
                 resolved_column = _column_for_source(result, source, column)
                 checks.append(_is_non_empty(result[resolved_column]))
+            if section == "overall":
+                for column in source_rule.get("required_true_columns", []):
+                    resolved_column = _column_for_source(result, source, column)
+                    checks.append(_is_true(result[resolved_column]))
             flag_name = f"{source}_{section}_complete"
             result[flag_name] = (
                 pd.concat(checks, axis=1).all(axis=1)
@@ -102,6 +118,42 @@ def apply_completion_rules(frame: pd.DataFrame, rules: dict[str, Any]) -> pd.Dat
 
     result["fully_completed"] = result[source_flags].all(axis=1)
     return result
+
+
+def apply_storybook_overrides(
+    frame: pd.DataFrame, overrides: list[dict[str, str]]
+) -> pd.DataFrame:
+    """Infer storybook completion for approved post-test-based overrides."""
+    result = frame.copy()
+    result["storybook_completion_source"] = pd.Series(
+        pd.NA, index=result.index, dtype="string"
+    )
+    result["storybook_completion_reason"] = pd.Series(
+        pd.NA, index=result.index, dtype="string"
+    )
+    result["storybook_metrics_available"] = result["storybook_present"].astype(bool)
+    result.loc[result["storybook_present"], "storybook_completion_source"] = (
+        "supabase_confirmed"
+    )
+
+    if not overrides:
+        return refresh_join_status(result)
+
+    for override in overrides:
+        participant_id = str(override["participant_id"]).strip()
+        eligible = (
+            result["participant_id"].astype("string").eq(participant_id)
+            & result["posttest_complete"].astype(bool)
+            & ~result["storybook_present"].astype(bool)
+        )
+        result.loc[eligible, "storybook__book_completed"] = True
+        result.loc[eligible, "storybook__game_completed"] = True
+        result.loc[eligible, "storybook_present"] = True
+        result.loc[eligible, "storybook_completion_source"] = "inferred_from_posttest"
+        result.loc[eligible, "storybook_completion_reason"] = override.get("reason", "")
+        result.loc[eligible, "storybook_metrics_available"] = False
+
+    return refresh_join_status(result)
 
 
 def participant_completion_summary(frame: pd.DataFrame) -> pd.DataFrame:

@@ -153,9 +153,9 @@ posttest:
   completion_mode: all_non_empty
 
 storybook:
-  required_columns:
-    - participant_id
+  required_true_columns:
     - book_completed
+    - game_completed
   completion_mode: all_non_empty
 
 fully_completed:

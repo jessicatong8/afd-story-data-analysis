@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.completeness import apply_completion_rules, load_completion_rules, participant_completion_summary
+from src.completeness import (
+    apply_completion_rules,
+    apply_storybook_overrides,
+    load_completion_rules,
+    participant_completion_summary,
+)
 from src.joining import join_sources
 from src.qualtrics import clean_qualtrics_csv
 from src.reporting import summary_metrics
@@ -67,7 +72,11 @@ def test_join_excludes_blank_storybook_ids():
 def test_completion_rules_and_participant_summary():
     pretest, posttest = _cleaned_sources()
     storybook = pd.DataFrame(
-        {"participant_id": ["57822002"], "book_completed": [True]}
+        {
+            "participant_id": ["57822002"],
+            "book_completed": [True],
+            "game_completed": [True],
+        }
     )
     joined = join_sources(pretest, posttest, storybook)
     completed = apply_completion_rules(joined, load_completion_rules(RULES))
@@ -142,6 +151,28 @@ def test_posttest_completion_requires_all_sections_and_reports_missing_sections(
     assert result.loc[1, "posttest_missing_sections"] == "Child Program Eval"
 
 
+def test_storybook_completion_requires_both_metrics_true():
+    frame = pd.DataFrame(
+        {
+            "participant_id": ["both", "book-only", "neither"],
+            "storybook__book_completed": [True, True, False],
+            "storybook__game_completed": [True, False, False],
+        }
+    )
+    rules = {
+        "pretest": {"required_columns": ["participant_id"]},
+        "posttest": {"required_columns": ["participant_id"]},
+        "storybook": {
+            "required_columns": ["participant_id"],
+            "required_true_columns": ["book_completed", "game_completed"],
+        },
+    }
+
+    result = apply_completion_rules(frame, rules)
+
+    assert result["storybook_complete"].tolist() == [True, False, False]
+
+
 def test_summary_metrics_counts_completed_pretest_participants():
     joined = pd.DataFrame(
         {
@@ -151,7 +182,7 @@ def test_summary_metrics_counts_completed_pretest_participants():
             "storybook_present": [False, False, False],
             "pretest_complete": [True, True, False],
             "posttest_complete": [True, True, False],
-            "storybook_complete": [False, False, False],
+            "storybook_complete": [True, True, False],
             "fully_completed": [False, False, False],
         }
     )
@@ -160,3 +191,34 @@ def test_summary_metrics_counts_completed_pretest_participants():
 
     assert metrics["completed_pretest_participants"] == 1
     assert metrics["completed_posttest_participants"] == 1
+    assert metrics["completed_storybook_participants"] == 1
+
+
+def test_storybook_override_infers_completion_without_metrics():
+    frame = pd.DataFrame(
+        {
+            "participant_id": ["missing-db"],
+            "pretest_present": [True],
+            "posttest_present": [True],
+            "storybook_present": [False],
+            "posttest_complete": [True],
+            "storybook__book_completed": [pd.NA],
+            "storybook__game_completed": [pd.NA],
+            "join_status": ["missing_storybook"],
+        }
+    )
+
+    result = apply_storybook_overrides(
+        frame,
+        [{
+            "participant_id": "missing-db",
+            "reason": "Database outage",
+        }],
+    )
+
+    assert result.loc[0, "storybook_present"]
+    assert result.loc[0, "storybook__book_completed"]
+    assert result.loc[0, "storybook__game_completed"]
+    assert result.loc[0, "storybook_completion_source"] == "inferred_from_posttest"
+    assert not result.loc[0, "storybook_metrics_available"]
+    assert result.loc[0, "join_status"] == "matched_all_sources"
