@@ -37,8 +37,8 @@ def _secret(name: str) -> str | None:
         return None
 
 st.set_page_config(page_title="AFD Storybook Study Data Analysis", layout="wide")
-st.title("AFD Story Data Analysis")
-st.caption("Cleans and filters qualtrics survey data and storybook metrics and joins by participant ID. Completion is defined by valid responses to key survey questions (essential demographics, completion of scales) and book and game completion")
+st.title("AFD Storybook Study Data Analysis")
+st.caption("Cleans and filters Qualtrics survey data and storybook metrics and joins by participant ID. Completion is defined by valid responses to key survey questions (essential demographics, completion of scales) and book and game completion. Filter by date range to see only responses collected during a specific time period. Download the joined dataset or the fully completed dataset for further analysis.")
 
 with st.sidebar:
     st.header("Data sources")
