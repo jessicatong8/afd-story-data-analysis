@@ -66,12 +66,13 @@ except ValueError as error:
     st.stop()
 
 metrics = summary_metrics(joined)
-metric_columns = st.columns(5)
+metric_columns = st.columns(6)
 for column, (label, value) in zip(
     metric_columns,
     [
         ("Unique participants", metrics["unique_participants"]),
         ("Pre-test participants", metrics["pretest_participants"]),
+        ("Completed pre-test", metrics["completed_pretest_participants"]),
         ("Post-test participants", metrics["posttest_participants"]),
         ("Storybook participants", metrics["storybook_participants"]),
         ("Fully completed", metrics["fully_completed_participants"]),

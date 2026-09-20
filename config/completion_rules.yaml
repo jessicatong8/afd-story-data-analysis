@@ -4,20 +4,20 @@ pretest:
       - Country
       - CGender
       - CAge
-      - PHispanic
-      - CHispanic
-      - PRace
-      - CRace
-      - PEthnicity
-      - CEthnicity
+      # - PHispanic
+      # - CHispanic
+      # - PRace
+      # - CRace
+      # - PEthnicity
+      # - CEthnicity
       - PGeneration
       - CGeneration
       - PCountryYears
       - CCountryYears
       - CEnglish_1
       - CEnglish_2
-      - CLanguages
-      - CLanguageAbilities
+      # - CLanguages
+      # - CLanguageAbilities
     cprs_scale:
       - PCPRS-Conflict_1
       - PCPRS-Conflict_2

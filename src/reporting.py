@@ -12,6 +12,9 @@ def summary_metrics(joined: pd.DataFrame) -> dict[str, int]:
     return {
         "unique_participants": int(joined["participant_id"].dropna().replace("", pd.NA).nunique()),
         "pretest_participants": int(_unique_present(joined, "pretest_present")),
+        "completed_pretest_participants": int(participant_rows["pretest_complete"].sum())
+        if "pretest_complete" in participant_rows
+        else 0,
         "posttest_participants": int(_unique_present(joined, "posttest_present")),
         "storybook_participants": int(_unique_present(joined, "storybook_present")),
         "fully_completed_participants": int(participant_rows["fully_completed"].sum())

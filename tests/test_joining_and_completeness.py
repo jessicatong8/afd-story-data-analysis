@@ -5,6 +5,7 @@ import pandas as pd
 from src.completeness import apply_completion_rules, load_completion_rules, participant_completion_summary
 from src.joining import join_sources
 from src.qualtrics import clean_qualtrics_csv
+from src.reporting import summary_metrics
 
 INPUT_DATA = Path(__file__).parents[1] / "input-data"
 PRETEST = next(INPUT_DATA.glob("*Pre-Test*.csv"))
@@ -103,3 +104,22 @@ def test_pretest_completion_reports_missing_sections():
     assert result.loc[0, "pretest_complete"]
     assert pd.isna(result.loc[0, "pretest_missing_sections"])
     assert result.loc[1, "pretest_missing_sections"] == "Demographics, SDQ Scale"
+
+
+def test_summary_metrics_counts_completed_pretest_participants():
+    joined = pd.DataFrame(
+        {
+            "participant_id": ["one", "one", "two"],
+            "pretest_present": [True, True, True],
+            "posttest_present": [False, False, False],
+            "storybook_present": [False, False, False],
+            "pretest_complete": [True, True, False],
+            "posttest_complete": [False, False, False],
+            "storybook_complete": [False, False, False],
+            "fully_completed": [False, False, False],
+        }
+    )
+
+    metrics = summary_metrics(joined)
+
+    assert metrics["completed_pretest_participants"] == 1
