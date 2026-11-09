@@ -12,6 +12,7 @@ from .models import CleaningResult
 
 DEFAULT_TIMEZONE = "America/Los_Angeles"
 DEFAULT_CUTOFF = pd.Timestamp("2026-03-29 19:45:41", tz=DEFAULT_TIMEZONE)
+IQR_OUTLIER_MULTIPLIER = 1.5
 
 
 def _read_csv_source(source: BinaryIO | TextIO | str | Path) -> pd.DataFrame:
@@ -84,14 +85,34 @@ def clean_qualtrics_csv(
     before_collection_cutoff = frame["_parsed_start_date"] < _as_cutoff(
         cutoff, timezone
     )
-    duplicate_mask = frame["participant_id"].ne("") & frame["participant_id"].notna()
-    duplicate_mask &= frame["participant_id"].duplicated(keep=False)
-    frame["_is_duplicate_participant_id"] = duplicate_mask
-
     eligible_mask = ~is_preview & ~before_collection_cutoff
     data = frame.loc[eligible_mask].copy()
+    duration_outliers = pd.DataFrame(
+        columns=["participant_id", "start_date", "duration_seconds", "iqr_cutoff_seconds"]
+    )
+    if source_name == "pretest":
+        durations = pd.to_numeric(data["Duration (in seconds)"], errors="coerce")
+        valid_durations = durations.dropna()
+        if not valid_durations.empty:
+            q1, q3 = valid_durations.quantile([0.25, 0.75])
+            iqr_cutoff = q3 + IQR_OUTLIER_MULTIPLIER * (q3 - q1)
+            outlier_mask = durations > iqr_cutoff
+            duration_outliers = data.loc[
+                outlier_mask,
+                ["participant_id", start_column, "Duration (in seconds)"],
+            ].rename(
+                columns={
+                    start_column: "start_date",
+                    "Duration (in seconds)": "duration_seconds",
+                }
+            )
+            duration_outliers["iqr_cutoff_seconds"] = iqr_cutoff
+
+    duplicate_mask = data["participant_id"].ne("") & data["participant_id"].notna()
+    duplicate_mask &= data["participant_id"].duplicated(keep=False)
+    data["_is_duplicate_participant_id"] = duplicate_mask
     duplicate_ids = (
-        data.loc[data["_is_duplicate_participant_id"], ["participant_id"]]
+        data.loc[duplicate_mask, ["participant_id"]]
         .drop_duplicates()
         .sort_values("participant_id")
         .reset_index(drop=True)
@@ -101,6 +122,7 @@ def clean_qualtrics_csv(
         data=data.reset_index(drop=True),
         source=source_name,
         duplicate_ids=duplicate_ids,
+        duration_outliers=duration_outliers.reset_index(drop=True),
     )
 
 
@@ -143,4 +165,18 @@ def filter_cleaning_result_by_date_range(
         .sort_values("participant_id")
         .reset_index(drop=True)
     )
-    return replace(result, data=data, duplicate_ids=duplicate_ids)
+    duration_outliers = result.duration_outliers.copy()
+    if not duration_outliers.empty:
+        duration_outliers["start_date"] = _parse_start_dates(
+            duration_outliers["start_date"], timezone
+        )
+        duration_outliers = duration_outliers.loc[
+            duration_outliers["start_date"].ge(start)
+            & duration_outliers["start_date"].lt(end_exclusive)
+        ].reset_index(drop=True)
+    return replace(
+        result,
+        data=data,
+        duplicate_ids=duplicate_ids,
+        duration_outliers=duration_outliers,
+    )

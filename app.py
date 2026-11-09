@@ -18,10 +18,18 @@ from src.joining import join_sources
 from src.qualtrics import (
     DEFAULT_CUTOFF,
     DEFAULT_TIMEZONE,
+    IQR_OUTLIER_MULTIPLIER,
     clean_qualtrics_csv,
     filter_cleaning_result_by_date_range,
 )
-from src.reporting import completed_participant_details, summary_metrics
+from src.reporting import (
+    completed_participant_details,
+    completed_participant_times,
+    duration_summary,
+    duration_distribution,
+    format_duration,
+    summary_metrics,
+)
 from src.supabase_client import create_supabase_client, fetch_participants
 
 load_dotenv()
@@ -161,6 +169,71 @@ else:
         width="stretch",
         hide_index=True,
     )
+
+st.subheader("Study completion time breakdown")
+pretest_duration_outlier_ids = set(
+    pretest_result.duration_outliers["participant_id"].dropna().astype(str)
+)
+participant_times = completed_participant_times(
+    joined,
+    excluded_participant_ids=pretest_duration_outlier_ids,
+)
+if participant_times.empty:
+    st.info("No completed participant timing data is available.")
+else:
+    timing_summary = duration_summary(participant_times)
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "Duration": label,
+                    "Mean": format_duration(values["mean"]),
+                    "SD": format_duration(values["sd"]),
+                }
+                for label, values in timing_summary.items()
+            ]
+        ),
+        width="stretch",
+        hide_index=True,
+    )
+    st.caption(
+        "Total study time is the sum of pre-test, book, game, and post-test time. Distributions use five-minute bins."
+    )
+    chart_columns = st.columns(5)
+    chart_definitions = [
+        ("Pre-test", "pretest_duration_sec"),
+        ("Book", "storybook_book_time_sec"),
+        ("Game", "storybook_game_time_sec"),
+        ("Post-test", "posttest_duration_sec"),
+        ("Total study", "total_study_time_sec"),
+    ]
+    for chart_column, (label, duration_column) in zip(chart_columns, chart_definitions):
+        distribution = duration_distribution(participant_times, duration_column)
+        with chart_column:
+            st.caption(label)
+            if distribution.empty:
+                st.info("No data")
+            else:
+                st.bar_chart(
+                    distribution.set_index("time_range")["participants"],
+                    width="stretch",
+                )
+
+
+with st.expander("Pre-test duration outliers excluded"):
+    if pretest_result.duration_outliers.empty:
+        st.info("No pre-test duration outliers were excluded.")
+    else:
+        cutoff = pretest_result.duration_outliers["iqr_cutoff_seconds"].iloc[0]
+        st.caption(
+            f"Excluded durations above the computed upper IQR fence "
+            f"({cutoff:.0f} seconds = Q3 + {IQR_OUTLIER_MULTIPLIER} x IQR)."
+        )
+        st.dataframe(
+            pretest_result.duration_outliers,
+            width="stretch",
+            hide_index=True,
+        )
 
 with st.expander("Duplicate participant IDs"):
     duplicates = pd.concat(

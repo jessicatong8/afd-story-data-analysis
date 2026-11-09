@@ -26,10 +26,27 @@ def test_cleaning_filters_previews_and_before_cutoff_rows():
     result = clean_qualtrics_csv(PRETEST, "pretest")
 
     assert len(result.data) == 73
+    assert len(result.duration_outliers) == 10
+    assert (
+        pd.to_numeric(result.duration_outliers["duration_seconds"])
+        > result.duration_outliers["iqr_cutoff_seconds"]
+    ).all()
     assert not {"_has_participant_id", "_is_preview", "_before_collection_cutoff", "_exclusion_reason"}.intersection(result.data.columns)
     assert result.data["participant_id"].dtype == "string"
     assert result.data["_parsed_start_date"].dt.tz is not None
     assert str(result.data["_parsed_start_date"].dt.tz) == "America/Los_Angeles"
+
+
+def test_duration_outliers_are_retained_for_join_and_completion():
+    result = clean_qualtrics_csv(PRETEST, "pretest")
+
+    outlier_ids = set(result.duration_outliers["participant_id"].astype(str))
+    retained_ids = set(result.data["participant_id"].astype(str))
+
+    assert outlier_ids
+    assert outlier_ids <= retained_ids
+    assert len(result.data) == 73
+    assert len(result.duration_outliers) == 10
 
 
 def test_cleaning_retains_posttest_duplicate_rows_and_flags_ids():
